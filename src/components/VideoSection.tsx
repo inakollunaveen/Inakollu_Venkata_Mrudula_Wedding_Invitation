@@ -18,16 +18,16 @@ export const VideoSection: React.FC = () => {
       title: 'సాంప్రదాయ కళ్యాణ వైభోగం',
       subtitle: 'ఇనకోల్లు వారి కళ్యాణ మహోత్సవ ఆహ్వానం',
       badge: 'ఆహ్వానం 1',
-      videoUrl: '/media/invitation.mp4',
-      driveId: '',
+      videoUrl: 'https://drive.google.com/file/d/1oADlRhKE1GLEuUpV1P06Tto2sRS-LIP1/preview',
+      driveId: '1oADlRhKE1GLEuUpV1P06Tto2sRS-LIP1',
     },
     {
       id: 'video-2',
       title: 'దివ్య మంగళ పెండ్లిపిలుపు',
       subtitle: 'ఇనకోల్లు వారి పెండ్లిపిలుపు (వధువేమో అలమేలు వరుడట శ్రీవారు)',
       badge: 'ఆహ్వానం 2',
-      videoUrl: '/media/invitation2.mp4',
-      driveId: '',
+      videoUrl: 'https://drive.google.com/file/d/1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM/preview',
+      driveId: '1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM',
     },
   ];
 
@@ -69,6 +69,14 @@ export const VideoSection: React.FC = () => {
   };
 
   const handlePlayToggle = async () => {
+    if (activeVideo.driveId) {
+      notifyVideoPlayStarted();
+      setIsPlaying(true);
+      setHasError(false);
+      setShowDriveIframe(true);
+      notifyDriveIframeActive(true);
+      return;
+    }
     if (!videoRef.current) return;
 
     if (videoRef.current.paused) {
@@ -212,7 +220,7 @@ export const VideoSection: React.FC = () => {
             <video
               key={activeVideo.videoUrl}
               ref={videoRef}
-              src={activeVideo.videoUrl}
+              src={activeVideo.driveId ? undefined : activeVideo.videoUrl}
               className="w-full h-full object-contain"
               playsInline
               preload="metadata"

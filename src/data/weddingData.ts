@@ -62,7 +62,7 @@ export const weddingData = {
     line: 'మా ఏకైక పుత్రిక చి.ల.సౌ. వెంకట మృదుల',
     familyRole: 'వధువు',
     photoUrl: '/media/bride.jpg',
-    driveId: '',
+    driveId: '1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM',
   },
 
   // Groom details
@@ -74,13 +74,13 @@ export const weddingData = {
     line: 'శ్రీ కొణతం మాలకొండయ్య – శ్రీమతి నారాయణమ్మ గార్ల ఏకైక పుత్రుడు చి. మల్లికార్జున',
     familyRole: 'వరుడు',
     photoUrl: '/media/groom.jpg',
-    driveId: '',
+    driveId: '1oADlRhKE1GLEuUpV1P06Tto2sRS-LIP1',
   },
 
   // Couple photo & video
   couple: {
     photoUrl: '/media/couple.jpg',
-    driveId: '',
+    driveId: '1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM',
   },
 
   // Two Wedding Invitation Videos
@@ -90,16 +90,16 @@ export const weddingData = {
       title: 'సాంప్రదాయ కళ్యాణ వైభోగం',
       subtitle: 'ఇనకోల్లు వారి కళ్యాణ మహోత్సవ ఆహ్వానం (రఘువంశ రామయ్య శుభయోగం)',
       badge: 'ఆహ్వానం 1',
-      videoUrl: '/media/invitation.mp4',
-      driveId: '',
+      videoUrl: 'https://drive.google.com/file/d/1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM/preview',
+      driveId: '1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM',
     },
     {
       id: 'video-2',
       title: 'దివ్య మంగళ పెండ్లిపిలుపు',
       subtitle: 'ఇనకోల్లు వారి పెండ్లిపిలుపు (వధువేమో అలమేలు వరుడట శ్రీవారు)',
       badge: 'ఆహ్వానం 2',
-      videoUrl: '/media/invitation2.mp4',
-      driveId: '',
+      videoUrl: 'https://drive.google.com/file/d/1oADlRhKE1GLEuUpV1P06Tto2sRS-LIP1/preview',
+      driveId: '1oADlRhKE1GLEuUpV1P06Tto2sRS-LIP1',
     },
   ],
 
@@ -107,8 +107,8 @@ export const weddingData = {
   video: {
     title: 'మా వివాహ ఆహ్వాన దృశ్య రూపకం',
     subtitle: 'మా జీవితంలోని ఈ మధుర క్షణాలను మీతో పంచుకోవాలని ఆశిస్తున్నాము',
-    videoUrl: '/media/invitation.mp4',
-    driveId: '',
+    videoUrl: 'https://drive.google.com/file/d/1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM/preview',
+    driveId: '1VCDvzsbOR229RXxFZ_IvCtbMvC5LdQJM',
   },
 
   music: {
