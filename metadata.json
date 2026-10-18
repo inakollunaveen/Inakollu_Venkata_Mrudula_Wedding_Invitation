@@ -1,0 +1,6 @@
+{
+  "name": "కళ్యాణ వైభోగం — వెంకట మృదుల & మల్లికార్జున వివాహ ఆహ్వానము",
+  "description": "చి.ల.సౌ. వెంకట మృదుల మరియు చి. మల్లికార్జున ల పవిత్ర వివాహ మహోత్సవ శుభ ఆహ్వాన పత్రిక.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
