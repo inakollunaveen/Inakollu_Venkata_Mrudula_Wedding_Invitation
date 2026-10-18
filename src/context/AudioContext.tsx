@@ -6,6 +6,16 @@
  * - When user clicks/plays any video: song pauses immediately
  * - When user stops/pauses the video OR video completes: song plays automatically!
  * - Floating music control with play/pause and mute/unmute
+ *
+ * Cross-browser notes (Android Chrome incl. "Desktop site" mode, Safari/macOS):
+ * - Android Chrome gives audio focus to whichever media starts last. If the song
+ *   starts while a video is playing, the video gets paused. So every audio.play()
+ *   call goes through safePlay(), which refuses to start while a video holds the lock.
+ * - All lock / mute / wantMusic values are mirrored in refs so event listeners and
+ *   the callbacks below never read stale state (this was restarting the song while
+ *   a video was open, and stopping the video).
+ * - Callbacks are referentially stable, so effects that depend on them in
+ *   components don't re-run (and fire their cleanups) when mute/music state changes.
  */
 
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
@@ -38,6 +48,45 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [videoHoldingLock, setVideoHoldingLock] = useState<boolean>(false);
   const [audioError, setAudioError] = useState<string | null>(null);
 
+  // Always-current mirrors of state, safe to read from listeners and stable callbacks
+  const lockRef = useRef<boolean>(false);
+  const wantMusicRef = useRef<boolean>(true);
+  const mutedRef = useRef<boolean>(false);
+
+  const setLock = useCallback((value: boolean) => {
+    lockRef.current = value;
+    setVideoHoldingLock(value);
+  }, []);
+
+  const setWant = useCallback((value: boolean) => {
+    wantMusicRef.current = value;
+    setWantMusic(value);
+  }, []);
+
+  /** Start the song only when nothing (a video) is holding the audio lock. */
+  const safePlay = useCallback(async (): Promise<boolean> => {
+    const audio = audioRef.current;
+    if (!audio || lockRef.current || !wantMusicRef.current) return false;
+    try {
+      await audio.play();
+      return true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const pauseSong = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio && !audio.paused) audio.pause();
+  }, []);
+
+  /** Resume the song after a video is finished / stopped / closed. */
+  const resumeSongIfWanted = useCallback(() => {
+    if (wantMusicRef.current && !mutedRef.current) {
+      void safePlay();
+    }
+  }, [safePlay]);
+
   // Initialize single shared audio instance
   useEffect(() => {
     const audio = new Audio();
@@ -66,49 +115,49 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     audioRef.current = audio;
 
+    // First-interaction fallback for browsers that block autoplay.
+    // Skips entirely while a video holds the lock, so tapping a video's play
+    // button never starts the song on top of it.
+    const interactionEvents: Array<keyof WindowEventMap> = ['click', 'touchend', 'pointerup', 'keydown'];
+    const removeInteractionListeners = () => {
+      interactionEvents.forEach((evt) => window.removeEventListener(evt, triggerPlay));
+    };
+    function triggerPlay() {
+      if (lockRef.current) return; // keep listening until it is safe to start
+      removeInteractionListeners();
+      void safePlay().then((ok) => {
+        if (ok) {
+          setIsPlaying(true);
+          setHasStartedOnce(true);
+        }
+      });
+    }
+
     // Automatic play attempt on site load
-    const startAudio = async () => {
-      try {
-        await audio.play();
+    void safePlay().then((ok) => {
+      if (ok) {
         setIsPlaying(true);
         setHasStartedOnce(true);
-      } catch {
-        // Modern browsers may require first user interaction
-        const triggerPlay = async () => {
-          try {
-            await audio.play();
-            setIsPlaying(true);
-            setHasStartedOnce(true);
-          } catch {
-            // Silence if media file not found yet
-          }
-        };
-
-        window.addEventListener('click', triggerPlay, { once: true });
-        window.addEventListener('touchstart', triggerPlay, { once: true });
-        window.addEventListener('pointerdown', triggerPlay, { once: true });
-        window.addEventListener('keydown', triggerPlay, { once: true });
+      } else {
+        interactionEvents.forEach((evt) => window.addEventListener(evt, triggerPlay, { passive: true }));
       }
-    };
+    });
 
-    startAudio();
-
-    // Visibility change handling
+    // Visibility change handling: pause when hidden, resume only if nothing blocks it
     const handleVisibilityChange = () => {
       if (document.hidden) {
         if (!audio.paused) {
           audio.pause();
         }
-      } else {
-        if (wantMusic && !videoHoldingLock && !isMuted) {
-          audio.play().catch(() => {});
-        }
+      } else if (wantMusicRef.current && !lockRef.current && !mutedRef.current) {
+        void safePlay();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      removeInteractionListeners();
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('error', handleError);
@@ -116,10 +165,11 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       audio.pause();
       audio.src = '';
     };
-  }, []);
+  }, [safePlay]);
 
   // Sync mute state to audio element
   useEffect(() => {
+    mutedRef.current = isMuted;
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
     }
@@ -128,42 +178,38 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Start opening music on envelope tap or explicit action
   const startOpeningMusic = useCallback(async () => {
     setHasStartedOnce(true);
-    setWantMusic(true);
+    setWant(true);
     setAudioError(null);
 
-    if (audioRef.current) {
-      try {
-        if (audioRef.current.paused) {
-          await audioRef.current.play();
-        }
-        setIsPlaying(true);
-      } catch (err) {
-        console.warn('Audio play request:', err);
-      }
+    if (audioRef.current && audioRef.current.paused) {
+      const ok = await safePlay();
+      if (ok) setIsPlaying(true);
     }
-  }, []);
+  }, [safePlay, setWant]);
 
   // Toggle play/pause by guest explicitly
   const togglePlayPause = useCallback(() => {
-    if (!audioRef.current) return;
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    if (isPlaying) {
-      audioRef.current.pause();
-      setWantMusic(false); // Guest chose to stop
+    if (!audio.paused) {
+      audio.pause();
+      setWant(false); // Guest chose to stop
     } else {
-      setWantMusic(true); // Guest wants music
-      if (!videoHoldingLock) {
-        audioRef.current.play().catch(() => {
+      setWant(true); // Guest wants music
+      if (!lockRef.current) {
+        audio.play().catch(() => {
           setAudioError('సంగీతం ప్లే చేయడంలో సమస్య తలెత్తింది.');
         });
       }
     }
-  }, [isPlaying, videoHoldingLock]);
+  }, [setWant]);
 
   // Toggle mute
   const toggleMute = useCallback(() => {
-    setIsMuted(prev => {
+    setIsMuted((prev) => {
       const next = !prev;
+      mutedRef.current = next;
       if (audioRef.current) {
         audioRef.current.muted = next;
       }
@@ -171,44 +217,34 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     });
   }, []);
 
-  // When user clicks on video: immediately pause music
+  // When user clicks on video: immediately pause music and hold the lock
   const notifyVideoPlayStarted = useCallback(() => {
-    setVideoHoldingLock(true);
-    if (audioRef.current && !audioRef.current.paused) {
-      audioRef.current.pause();
-    }
-  }, []);
+    setLock(true);
+    pauseSong();
+  }, [setLock, pauseSong]);
 
   // When user stops/pauses the video: automatically resume song
   const notifyVideoStopped = useCallback(() => {
-    setVideoHoldingLock(false);
-    if (wantMusic && !isMuted && audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
-  }, [wantMusic, isMuted]);
+    setLock(false);
+    resumeSongIfWanted();
+  }, [setLock, resumeSongIfWanted]);
 
   // When video completes or fails: automatically resume song
   const notifyVideoEndedOrFailed = useCallback(() => {
-    setVideoHoldingLock(false);
-    if (wantMusic && !isMuted && audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
-  }, [wantMusic, isMuted]);
+    setLock(false);
+    resumeSongIfWanted();
+  }, [setLock, resumeSongIfWanted]);
 
   // Drive Iframe modal open/close
   const notifyDriveIframeActive = useCallback((active: boolean) => {
     if (active) {
-      setVideoHoldingLock(true);
-      if (audioRef.current && !audioRef.current.paused) {
-        audioRef.current.pause();
-      }
+      setLock(true);
+      pauseSong();
     } else {
-      setVideoHoldingLock(false);
-      if (wantMusic && !isMuted && audioRef.current) {
-        audioRef.current.play().catch(() => {});
-      }
+      setLock(false);
+      resumeSongIfWanted();
     }
-  }, [wantMusic, isMuted]);
+  }, [setLock, pauseSong, resumeSongIfWanted]);
 
   return (
     <AudioContext.Provider

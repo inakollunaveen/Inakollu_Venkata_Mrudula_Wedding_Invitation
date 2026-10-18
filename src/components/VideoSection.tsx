@@ -153,8 +153,23 @@ export const VideoSection: React.FC = () => {
 
   const closeDriveIframeModal = () => {
     setShowDriveIframe(false);
+    setIsPlaying(false);
     notifyDriveIframeActive(false);
   };
+
+  // Close the Drive player with the Escape key (desktop / Mac)
+  useEffect(() => {
+    if (!showDriveIframe) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowDriveIframe(false);
+        setIsPlaying(false);
+        notifyDriveIframeActive(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showDriveIframe, notifyDriveIframeActive]);
 
   const formatVideoTime = (secs: number) => {
     if (isNaN(secs)) return '0:00';
@@ -324,7 +339,16 @@ export const VideoSection: React.FC = () => {
 
         {/* Google Drive Iframe Fallback Modal */}
         {showDriveIframe && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          // No backdrop-blur here on purpose: a blurred full-screen layer above an
+          // iframe makes Android Chrome (esp. in "Desktop site" mode) stop painting
+          // / pause the embedded video. A solid dark overlay is rock solid.
+          <div
+            className="fixed inset-0 z-50 bg-black/95 overflow-y-auto overscroll-contain"
+            style={{ minHeight: '100dvh' }}
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="min-h-full flex flex-col items-center justify-center p-3 sm:p-4">
             <div className="relative w-full max-w-3xl royal-card rounded-2xl p-4 sm:p-6 flex flex-col items-center">
               <h4 className="text-lg font-bold font-telugu text-[#fef08a] mb-2">
                 Google Drive వీడియో ఆహ్వానం ({activeVideo.title})
@@ -336,9 +360,13 @@ export const VideoSection: React.FC = () => {
               <div className="w-full aspect-video rounded-xl overflow-hidden bg-black mb-4">
                 {activeVideo.driveId ? (
                   <iframe
+                    key={activeVideo.driveId}
                     src={`https://drive.google.com/file/d/${activeVideo.driveId}/preview`}
                     className="w-full h-full border-0"
-                    allow="autoplay"
+                    allow="autoplay; fullscreen; encrypted-media; picture-in-picture; clipboard-write"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    loading="eager"
                     title={activeVideo.title}
                   />
                 ) : (
@@ -351,14 +379,32 @@ export const VideoSection: React.FC = () => {
                 )}
               </div>
 
-              {/* Required Completion Button */}
-              <button
-                onClick={closeDriveIframeModal}
-                className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#dfb86c] to-[#f5d68b] text-[#26050c] font-telugu font-bold text-sm sm:text-base shadow-lg hover:brightness-110 cursor-pointer"
-              >
-                <CheckCircle className="w-5 h-5 text-[#26050c]" />
-                <span>వీడియో చూడటం పూర్తయింది</span>
-              </button>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {/* Required Completion Button */}
+                <button
+                  onClick={closeDriveIframeModal}
+                  className="flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-[#dfb86c] to-[#f5d68b] text-[#26050c] font-telugu font-bold text-sm sm:text-base shadow-lg hover:brightness-110 cursor-pointer"
+                >
+                  <CheckCircle className="w-5 h-5 text-[#26050c]" />
+                  <span>వీడియో చూడటం పూర్తయింది</span>
+                </button>
+
+                {/* Fallback: open the video directly in Google Drive (new tab / Drive app).
+                    Works on every phone, tablet and Mac even if the embedded player
+                    refuses to play (e.g. third-party cookies blocked). */}
+                {activeVideo.driveId && (
+                  <a
+                    href={`https://drive.google.com/file/d/${activeVideo.driveId}/view`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-5 py-3 rounded-full bg-[#3b0a14] border border-[#c9a24b] text-[#dfb86c] font-telugu text-sm hover:bg-[#6b1224] transition-colors"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    <span>Drive లో తెరవండి</span>
+                  </a>
+                )}
+              </div>
+            </div>
             </div>
           </div>
         )}
