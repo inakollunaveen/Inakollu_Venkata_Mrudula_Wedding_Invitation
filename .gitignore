@@ -15,3 +15,12 @@ ffmpeg_temp/
 audio-test.wav
 node_modules/
 dist/
+
+# Keep large media and build files out of Git
+public/media/*.mp4
+public/media/*.mov
+public/media/*.wav
+ffmpeg.zip
+ffmpeg_temp/
+dist/
+node_modules/
